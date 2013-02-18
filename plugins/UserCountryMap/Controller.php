@@ -16,6 +16,8 @@
  */
 class Piwik_UserCountryMap_Controller extends Piwik_Controller
 {
+	// By defaul plot up to the last 30 days of visitors on the map, for low traffic sites
+	const REAL_TIME_WINDOW = 'last30';
 
     private function _reqUrl($module, $action, $idSite, $period, $date, $token_auth, $filter_by_country = false) {
         // use processed reports
@@ -46,10 +48,8 @@ class Piwik_UserCountryMap_Controller extends Piwik_Controller
 
     function visitorMap()
     {
-        if(!Piwik_PluginsManager::getInstance()->isPluginActivated('UserCountry'))
-        {
-            return '';
-        }
+		$this->checkUserCountryPluginEnabled();
+
         $config = array();
 
         $idSite = Piwik_Common::getRequestVar('idSite', 1, 'int');
@@ -113,23 +113,23 @@ class Piwik_UserCountryMap_Controller extends Piwik_Controller
 
     function realtimeMap()
     {
-        if(!Piwik_PluginsManager::getInstance()->isPluginActivated('UserCountry'))
-        {
-            return '';
-        }
-        $idSite = Piwik_Common::getRequestVar('idSite', 1, 'int');
+		if(Piwik::isUserIsAnonymous())
+		{
+			return "<h2>" . Piwik_Translate("UserCountryMap_LoginToViewRealTime") . "</h2>";
+		}
+		$this->checkUserCountryPluginEnabled();
+
+		$idSite = Piwik_Common::getRequestVar('idSite', 1, 'int');
         Piwik::checkUserHasViewAccess($idSite);
 
-        $period = Piwik_Common::getRequestVar('period');
-        $date = Piwik_Common::getRequestVar('date');
-        $token_auth = Piwik::getCurrentUserTokenAuth();
-        $view = Piwik_View::factory('realtime-map');
+		$token_auth = Piwik::getCurrentUserTokenAuth();
+		$view = Piwik_View::factory('realtime-map');
 
-        $view->metrics = $this->getMetrics($idSite, $period, $date, $token_auth);
-        $view->defaultMetric = 'nb_visits';
-        $view->liveRefreshAfterMs = (int)Piwik_Config::getInstance()->General['live_widget_refresh_after_seconds'] * 1000;
+		$view->metrics = $this->getMetrics($idSite, 'day', 'today', $token_auth);
+		$view->defaultMetric = 'nb_visits';
+		$view->liveRefreshAfterMs = (int)Piwik_Config::getInstance()->General['live_widget_refresh_after_seconds'] * 1000;
 
-        // some translations
+		// some translations
         $view->localeJSON = json_encode(array(
             'nb_actions' => Piwik_Translate('VisitsSummary_NbActionsDescription'),
             'local_time' => Piwik_Translate('VisitTime_ColumnLocalTime'),
@@ -146,9 +146,9 @@ class Piwik_UserCountryMap_Controller extends Piwik_Controller
         ));
 
         $view->reqParamsJSON = json_encode(array(
-            'period' => $period,
+            'period' => 'range',
             'idSite' => $idSite,
-            'date' => $date,
+            'date' => self::REAL_TIME_WINDOW,
             'token_auth' => $token_auth,
             'format' => 'json',
             'segment' => Piwik_Common::unsanitizeInputValue(Piwik_Common::getRequestVar('segment', '')),
@@ -158,8 +158,15 @@ class Piwik_UserCountryMap_Controller extends Piwik_Controller
         echo $view->render();
     }
 
+	private function checkUserCountryPluginEnabled()
+	{
+		if (!Piwik_PluginsManager::getInstance()->isPluginActivated('UserCountry'))
+		{
+			throw new Exception(Piwik_Translate('General_Required', 'Plugin UserCountry'));
+		}
+	}
 
-    private function getMetrics($idSite, $period, $date, $token_auth) {
+	private function getMetrics($idSite, $period, $date, $token_auth) {
         $request = new Piwik_API_Request(
             'method=API.getMetadata&format=PHP'
             . '&apiModule=UserCountry&apiAction=getCountry'
@@ -183,26 +190,6 @@ class Piwik_UserCountryMap_Controller extends Piwik_Controller
             $metrics[] = array($id, $val);
         }
         return $metrics;
-    }
-
-    /*
-     * shows the traditional extra page where the user
-     * is able to download the exported image via right - click
-     *
-     * note: this is a fallback for older flashplayer versions
-     */
-    function exportImage()
-    {
-        Piwik_Proxy_Controller::exportImageWindow();
-    }
-
-    /*
-     * this outputs the image straight forward and is directly called
-     * via flash download process
-     */
-    function outputImage()
-    {
-        Piwik_Proxy_Controller::outputBinaryImage();
     }
 
     /*

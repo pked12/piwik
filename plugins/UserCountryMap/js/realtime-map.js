@@ -68,8 +68,7 @@ RealTimeMap.run = function(config) {
                 'referrerTypeName','browserIcon','operatingSystemIcon',
                 'countryFlag','idVisit','actionDetails','continentCode',
                 'actions', 'searches'].join(','),
-            minTimestamp: firstRun ? -1 : lastTimestamp,
-            date: 'today'
+            minTimestamp: firstRun ? -1 : lastTimestamp
         });
         return params;
     }
@@ -357,7 +356,7 @@ RealTimeMap.run = function(config) {
 
                 // show
                 var dur = lastTimestamp - oldest, d;
-                if (dur < 60) d = dur+ ' ' + RealTimeMap._.seconds;
+                if (dur < 60) d = dur + ' ' + RealTimeMap._.seconds;
                 else if (dur < 3600) d = Math.ceil(dur / 60) + ' ' + RealTimeMap._.minutes;
                 else d = Math.ceil(dur / 3600) + ' ' + RealTimeMap._.hours;
                 $('.realTimeMap_timeSpan').html(d);
